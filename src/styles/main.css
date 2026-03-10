@@ -1,0 +1,249 @@
+/* ─── Reset & Variables ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #1a1a2e;
+  --bg2:       #16213e;
+  --bg3:       #0f3460;
+  --accent:    #e94560;
+  --accent2:   #533483;
+  --text:      #eaeaea;
+  --text-dim:  #888;
+  --border:    #2a2a4a;
+  --cell-w:    130px;
+  --cell-h:    22px;
+  --row-num-w: 36px;
+  --beat-color:#252550;
+  --bar-color: #1e1e3c;
+  --active-row:#e94560;
+  --note-bg:   #533483;
+  --note-text: #fff;
+  --font:      'Courier New', Courier, monospace;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; overflow: hidden; }
+
+/* ─── App Layout ──────────────────────────────────────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ─── Toolbar ─────────────────────────────────────────────────────────────── */
+#toolbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 12px; background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0; flex-wrap: wrap;
+}
+.toolbar-left, .toolbar-center, .toolbar-right { display: flex; align-items: center; gap: 8px; }
+.toolbar-center { flex: 1; justify-content: center; }
+.toolbar-right  { margin-left: auto; }
+
+.app-title { font-size: 16px; font-weight: bold; color: var(--accent); letter-spacing: 2px; white-space: nowrap; }
+
+#toolbar button {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 10px; border-radius: 4px;
+  cursor: pointer; font-size: 14px; transition: background .15s;
+}
+#toolbar button:hover  { background: var(--accent2); }
+#toolbar button:active { background: var(--accent); }
+
+#btn-play   { color: #4caf50; }
+#btn-stop   { color: #ff5252; }
+.record-btn { color: var(--accent); }
+.record-btn.active { background: var(--accent); color: #fff; }
+
+#toolbar label { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-dim); }
+#toolbar input[type=number] {
+  width: 56px; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 3px 4px; border-radius: 4px; font-family: var(--font);
+}
+#toolbar select {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 3px 6px; border-radius: 4px; font-family: var(--font);
+}
+
+.separator { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+/* ─── Main Area ───────────────────────────────────────────────────────────── */
+#main-area { display: flex; flex: 1; overflow: hidden; }
+
+/* ─── Instrument Panel ────────────────────────────────────────────────────── */
+#instrument-panel {
+  width: 180px; flex-shrink: 0; background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.panel-header {
+  padding: 6px 10px; background: var(--bg3); font-weight: bold;
+  font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.panel-header button {
+  background: none; border: 1px solid var(--accent); color: var(--accent);
+  width: 20px; height: 20px; border-radius: 3px; cursor: pointer;
+  font-size: 14px; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+.panel-header button:hover { background: var(--accent); color: #fff; }
+
+#track-list { list-style: none; overflow-y: auto; flex: 1; }
+#track-list li {
+  padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 6px;
+  transition: background .1s; white-space: nowrap; overflow: hidden;
+}
+#track-list li:hover    { background: var(--bg3); }
+#track-list li.selected { background: var(--accent2); }
+#track-list li.muted    { opacity: 0.45; }
+
+.track-color-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.track-name      { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+/* ─── Editor Area ─────────────────────────────────────────────────────────── */
+#editor-area {
+  flex: 1; overflow: auto; position: relative; background: var(--bg);
+}
+#pattern-editor-wrapper {
+  display: flex; min-width: max-content;
+}
+#row-numbers {
+  width: var(--row-num-w); flex-shrink: 0; position: sticky; left: 0; z-index: 10;
+  background: var(--bg2); border-right: 1px solid var(--border);
+}
+.row-num {
+  height: var(--cell-h); display: flex; align-items: center;
+  justify-content: center; font-size: 11px; color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+.row-num.beat  { background: var(--beat-color); color: var(--text); }
+.row-num.bar   { background: var(--bar-color);  color: var(--accent); font-weight: bold; }
+
+#pattern-editor { flex: 1; }
+
+.track-column {
+  display: inline-block; vertical-align: top;
+  border-right: 1px solid var(--border); min-width: var(--cell-w);
+}
+.track-header {
+  height: var(--cell-h); display: flex; align-items: center;
+  padding: 0 6px; background: var(--bg3); border-bottom: 2px solid var(--border);
+  font-size: 11px; font-weight: bold; gap: 4px; position: sticky; top: 0; z-index: 5;
+  cursor: pointer; user-select: none;
+}
+.track-header:hover { background: var(--accent2); }
+
+.cell {
+  height: var(--cell-h); display: flex; align-items: center;
+  padding: 0 4px; border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none; gap: 2px;
+  transition: background .08s;
+}
+.cell:hover { background: var(--bg3); }
+.cell.active-row { background: rgba(233,69,96,.18); }
+.cell.selected   { background: var(--accent2); }
+.cell.has-note   { background: rgba(83,52,131,.4); }
+.cell.has-note .note-label { color: #c8a0ff; font-weight: bold; }
+.cell.active-row.has-note  { background: rgba(233,69,96,.35); }
+
+.note-label  { flex: 1; font-size: 11px; letter-spacing: 0.5px; }
+.vel-label   { font-size: 10px; color: var(--text-dim); min-width: 22px; text-align: right; }
+.fx-label    { font-size: 10px; color: #4fc; min-width: 20px; text-align: right; }
+
+/* ─── Properties Panel ────────────────────────────────────────────────────── */
+#properties-panel {
+  width: 220px; flex-shrink: 0; background: var(--bg2);
+  border-left: 1px solid var(--border); overflow-y: auto;
+  padding-bottom: 16px;
+}
+#instrument-props { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+#instrument-props label {
+  display: flex; flex-direction: column; gap: 3px;
+  font-size: 11px; color: var(--text-dim);
+}
+#instrument-props input[type=text],
+#instrument-props select {
+  background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 6px; border-radius: 4px; font-family: var(--font); font-size: 12px;
+}
+#instrument-props input[type=range] { width: 100%; accent-color: var(--accent); }
+.prop-row { display: flex; gap: 6px; margin-top: 4px; }
+.prop-row button {
+  flex: 1; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 5px; border-radius: 4px; cursor: pointer;
+  font-size: 12px; font-family: var(--font);
+}
+.prop-row button:hover  { background: var(--accent2); }
+.prop-row button.muted  { background: #555; }
+.prop-row button.soloed { background: #3a7d44; }
+
+/* Arrangement */
+#arrangement-area { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+#arrangement-list { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; }
+.arrangement-item {
+  display: flex; align-items: center; gap: 4px; padding: 3px 6px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 3px;
+  cursor: pointer; font-size: 11px;
+}
+.arrangement-item:hover { background: var(--bg3); }
+.arrangement-item .arr-idx { color: var(--text-dim); width: 18px; }
+.arrangement-item .arr-name { flex: 1; }
+.arrangement-item .arr-del {
+  background: none; border: none; color: #ff5252; cursor: pointer; font-size: 12px; padding: 0 2px;
+}
+#btn-arrange-add {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 5px 8px; border-radius: 4px; cursor: pointer;
+  font-family: var(--font); font-size: 12px;
+}
+#btn-arrange-add:hover { background: var(--accent2); }
+
+/* ─── Piano Roll Modal ────────────────────────────────────────────────────── */
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal.hidden { display: none; }
+.modal-content {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; display: flex; flex-direction: column;
+  width: 90vw; max-width: 900px; height: 70vh; overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; background: var(--bg3); border-bottom: 1px solid var(--border);
+  font-weight: bold;
+}
+.modal-close {
+  background: none; border: none; color: var(--text-dim); font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 2px 6px; border-radius: 3px;
+}
+.modal-close:hover { color: var(--accent); }
+#piano-roll-container { flex: 1; overflow: auto; position: relative; background: #111; }
+#piano-roll-canvas    { display: block; }
+.modal-footer {
+  display: flex; align-items: center; gap: 14px; padding: 8px 14px;
+  border-top: 1px solid var(--border); background: var(--bg3);
+}
+.modal-footer label   { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+.modal-footer input[type=range] { width: 100px; accent-color: var(--accent); }
+.modal-footer select  { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 3px 6px; border-radius: 4px; }
+.modal-footer button  {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 5px 14px; border-radius: 4px; cursor: pointer;
+}
+.modal-footer button:last-child { background: var(--accent); border-color: var(--accent); }
+
+/* ─── Status Bar ──────────────────────────────────────────────────────────── */
+#status-bar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 3px 12px; background: var(--bg2); border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-dim); flex-shrink: 0;
+}
+#status-bar span { flex: 1; }
+#status-bar span:last-child { text-align: right; flex: 0; white-space: nowrap; }
+
+/* ─── Scrollbars ──────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent2); }

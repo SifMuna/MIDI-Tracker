@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MIDI Tracker</title>
+  <link rel="stylesheet" href="src/styles/main.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="toolbar">
+      <div class="toolbar-left">
+        <h1 class="app-title">MIDI Tracker</h1>
+      </div>
+      <div class="toolbar-center">
+        <button id="btn-stop" title="Stop (Space)">&#9632;</button>
+        <button id="btn-play" title="Play (Space)">&#9654;</button>
+        <button id="btn-record" title="Record (R)" class="record-btn">&#9679;</button>
+        <span class="separator"></span>
+        <label>BPM
+          <input type="number" id="bpm" value="120" min="20" max="300" step="1" />
+        </label>
+        <label>Rows
+          <input type="number" id="pattern-length" value="32" min="4" max="128" step="4" />
+        </label>
+      </div>
+      <div class="toolbar-right">
+        <label>Pattern
+          <select id="pattern-select"></select>
+        </label>
+        <button id="btn-add-pattern">+ Pattern</button>
+        <button id="btn-clone-pattern">Clone</button>
+        <button id="btn-del-pattern">&#128465;</button>
+        <span class="separator"></span>
+        <button id="btn-export-midi">Export MIDI</button>
+      </div>
+    </header>
+
+    <div id="main-area">
+      <aside id="instrument-panel">
+        <div class="panel-header">
+          <span>Tracks</span>
+          <button id="btn-add-track">+</button>
+        </div>
+        <ul id="track-list"></ul>
+      </aside>
+
+      <div id="editor-area">
+        <div id="pattern-editor-wrapper">
+          <div id="row-numbers"></div>
+          <div id="pattern-editor"></div>
+        </div>
+      </div>
+
+      <aside id="properties-panel">
+        <div class="panel-header">Instrument</div>
+        <div id="instrument-props">
+          <label>Name
+            <input type="text" id="inst-name" placeholder="Track name" />
+          </label>
+          <label>Waveform
+            <select id="inst-wave">
+              <option value="sine">Sine</option>
+              <option value="square">Square</option>
+              <option value="sawtooth">Sawtooth</option>
+              <option value="triangle">Triangle</option>
+              <option value="custom">Custom (sample)</option>
+            </select>
+          </label>
+          <label>Attack
+            <input type="range" id="inst-attack" min="0" max="2" step="0.01" value="0.01" />
+            <span id="inst-attack-val">0.01s</span>
+          </label>
+          <label>Decay
+            <input type="range" id="inst-decay" min="0" max="2" step="0.01" value="0.1" />
+            <span id="inst-decay-val">0.10s</span>
+          </label>
+          <label>Sustain
+            <input type="range" id="inst-sustain" min="0" max="1" step="0.01" value="0.7" />
+            <span id="inst-sustain-val">0.70</span>
+          </label>
+          <label>Release
+            <input type="range" id="inst-release" min="0" max="4" step="0.01" value="0.3" />
+            <span id="inst-release-val">0.30s</span>
+          </label>
+          <label>Volume
+            <input type="range" id="inst-volume" min="0" max="1" step="0.01" value="0.8" />
+            <span id="inst-volume-val">0.80</span>
+          </label>
+          <label>Pan
+            <input type="range" id="inst-pan" min="-1" max="1" step="0.01" value="0" />
+            <span id="inst-pan-val">0.00</span>
+          </label>
+          <div class="prop-row">
+            <button id="btn-apply-inst">Apply</button>
+            <button id="btn-mute-track">Mute</button>
+            <button id="btn-solo-track">Solo</button>
+          </div>
+        </div>
+
+        <div class="panel-header" style="margin-top:16px">Song Arrangement</div>
+        <div id="arrangement-area">
+          <div id="arrangement-list"></div>
+          <button id="btn-arrange-add">Add Pattern</button>
+        </div>
+      </aside>
+    </div>
+
+    <div id="piano-roll-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <span id="piano-roll-title">Piano Roll</span>
+          <button class="modal-close" id="btn-close-piano-roll">&#x2715;</button>
+        </div>
+        <div id="piano-roll-container">
+          <canvas id="piano-roll-canvas"></canvas>
+        </div>
+        <div class="modal-footer">
+          <label>Velocity <input type="range" id="pr-velocity" min="1" max="127" value="100" /> <span id="pr-velocity-val">100</span></label>
+          <label>Duration
+            <select id="pr-duration">
+              <option value="0.25">1/16</option>
+              <option value="0.5">1/8</option>
+              <option value="1" selected>1/4</option>
+              <option value="2">1/2</option>
+              <option value="4">Whole</option>
+            </select>
+          </label>
+          <button id="btn-pr-clear">Clear</button>
+          <button id="btn-pr-ok">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="status-bar">
+      <span id="status-msg">Ready</span>
+      <span id="playhead-pos">Row: 0</span>
+      <span id="midi-status">MIDI: checking…</span>
+    </div>
+  </div>
+
+  <script src="src/js/utils.js"></script>
+  <script src="src/js/midi-export.js"></script>
+  <script src="src/js/audio-engine.js"></script>
+  <script src="src/js/tracker-model.js"></script>
+  <script src="src/js/piano-roll.js"></script>
+  <script src="src/js/ui.js"></script>
+  <script src="src/js/app.js"></script>
+</body>
+</html>
