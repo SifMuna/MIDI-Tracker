@@ -33,6 +33,8 @@
         <button id="btn-del-pattern">&#128465;</button>
         <span class="separator"></span>
         <button id="btn-export-midi">Export MIDI</button>
+        <button id="btn-import-midi">Import MIDI</button>
+        <input type="file" id="midi-file-input" accept=".mid,.midi" style="display:none" />
       </div>
     </header>
 
@@ -127,7 +129,7 @@
             </select>
           </label>
           <button id="btn-pr-clear">Clear</button>
-          <button id="btn-pr-ok">OK</button>
+          <button id="btn-pr-ok">Close</button>
         </div>
       </div>
     </div>
@@ -141,6 +143,7 @@
 
   <script src="src/js/utils.js"></script>
   <script src="src/js/midi-export.js"></script>
+  <script src="src/js/midi-import.js"></script>
   <script src="src/js/audio-engine.js"></script>
   <script src="src/js/tracker-model.js"></script>
   <script src="src/js/piano-roll.js"></script>

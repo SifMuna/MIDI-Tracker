@@ -359,6 +359,32 @@ class TrackerUI {
       exportMidi(this.model);
       this._status('Exported MIDI');
     });
+
+    document.getElementById('btn-import-midi').addEventListener('click', () => {
+      document.getElementById('midi-file-input').click();
+    });
+
+    document.getElementById('midi-file-input').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = ''; // reset so same file can be re-imported
+      const reader = new FileReader();
+      reader.onload = ev => {
+        try {
+          importMidi(this.model, ev.target.result);
+          document.getElementById('bpm').value = this.model.bpm;
+          this._buildPatternSelect();
+          this._buildTrackList();
+          this._buildPatternGrid();
+          this._buildArrangement();
+          this._loadTrackProps();
+          this._status('Imported: ' + file.name);
+        } catch (err) {
+          this._status('Import failed: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
   }
 
   /* ── Keyboard input ── */
@@ -444,8 +470,8 @@ class TrackerUI {
 
   /* ── Piano Roll ── */
   _bindPianoRoll() {
-    document.getElementById('btn-close-piano-roll').addEventListener('click', () => this._closePianoRoll(false));
-    document.getElementById('btn-pr-ok').addEventListener('click', () => this._closePianoRoll(true));
+    document.getElementById('btn-close-piano-roll').addEventListener('click', () => this._closePianoRoll());
+    document.getElementById('btn-pr-ok').addEventListener('click', () => this._closePianoRoll());
     document.getElementById('btn-pr-clear').addEventListener('click', () => this.pianoRoll.clear());
 
     document.getElementById('pr-velocity').addEventListener('input', e => {
@@ -458,7 +484,7 @@ class TrackerUI {
 
     // Close on backdrop click
     document.getElementById('piano-roll-modal').addEventListener('click', e => {
-      if (e.target === document.getElementById('piano-roll-modal')) this._closePianoRoll(false);
+      if (e.target === document.getElementById('piano-roll-modal')) this._closePianoRoll();
     });
   }
 
@@ -476,21 +502,32 @@ class TrackerUI {
     this.pianoRoll.resize();
     this.pianoRoll.loadFromCells(cells);
 
+    // Apply changes immediately as the user draws notes
+    this.pianoRoll._onChanged = () => {
+      if (!this._prTarget) return;
+      const { patIdx: pIdx, trackIdx: tIdx } = this._prTarget;
+      const p = this.model.patterns[pIdx];
+      this.pianoRoll.exportCells(p.length).forEach((cell, rowIdx) => {
+        this.model.setCell(pIdx, rowIdx, tIdx, cell);
+      });
+      this._refreshTrackCells(pIdx, tIdx);
+    };
+
     document.getElementById('piano-roll-modal').classList.remove('hidden');
   }
 
-  _closePianoRoll(save) {
-    if (save && this._prTarget) {
-      const { patIdx, trackIdx } = this._prTarget;
-      const pat   = this.model.patterns[patIdx];
-      const cells = this.pianoRoll.exportCells(pat.length);
-      cells.forEach((cell, rowIdx) => {
-        this.model.setCell(patIdx, rowIdx, trackIdx, cell);
-      });
-      this._buildPatternGrid();
-    }
+  _closePianoRoll() {
     document.getElementById('piano-roll-modal').classList.add('hidden');
+    this.pianoRoll._onChanged = null;
     this._prTarget = null;
+  }
+
+  /* Refresh only the cells in one track column — used for live piano roll updates */
+  _refreshTrackCells(patIdx, trackIdx) {
+    const pat = this.model.patterns[patIdx];
+    for (let r = 0; r < pat.length; r++) {
+      this._refreshCell(patIdx, r, trackIdx);
+    }
   }
 
   /* ── Misc ── */

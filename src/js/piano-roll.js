@@ -200,6 +200,9 @@ class PianoRoll {
       this._dirty = true;
       this.draw();
       if (this._onChanged) this._onChanged();
+    } else if (this._drag?.mode === 'add') {
+      // Notify after drag so the final duration is saved
+      if (this._onChanged) this._onChanged();
     }
     this._drag = null;
   }
