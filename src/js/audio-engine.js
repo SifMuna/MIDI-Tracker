@@ -106,8 +106,9 @@ class Sequencer {
     this.model    = model;
     this.engine   = engine;
     this.playing  = false;
+    this.mode     = 'pattern'; // 'pattern' | 'song'
     this.row      = 0;
-    this.arrIdx   = 0;   // index into arrangement
+    this._arrPos  = 0;   // current position in arrangement (song mode)
     this._timer   = null;
     this._startAt = 0;
     this._nextRow = 0;
@@ -115,14 +116,32 @@ class Sequencer {
     this._schedInterval = 25; // ms polling interval
 
     this.onRowChange = null; // callback(row, patternIdx)
+    this.onStop      = null; // callback() — fired when playback ends naturally
   }
 
-  get bpm()          { return this.model.bpm; }
-  get secPerRow()    { return 60 / this.bpm / 4; }  // 1/16th note per row
-  get currentPat()   { return this.model.patterns[this.model.currentPattern]; }
+  get bpm()       { return this.model.bpm; }
+  get secPerRow() { return 60 / this.bpm / 4; } // 1/16th note per row
 
-  start() {
-    if (this.playing) return;
+  /* ── Start playing just the current pattern (loops) ── */
+  startPattern() {
+    if (this.playing) this.stop();
+    this.mode    = 'pattern';
+    this._doStart();
+  }
+
+  /* ── Start playing the full song arrangement ── */
+  startSong() {
+    if (this.playing) this.stop();
+    if (!this.model.arrangement.length) return;
+    this.mode    = 'song';
+    this._arrPos = 0;
+    this._doStart();
+  }
+
+  /* Legacy alias */
+  start() { this.startPattern(); }
+
+  _doStart() {
     this.engine.resume();
     this.playing  = true;
     this.row      = 0;
@@ -135,8 +154,10 @@ class Sequencer {
     this.playing = false;
     if (this._timer) { clearTimeout(this._timer); this._timer = null; }
     this.engine.stopAll();
-    this.row = 0;
+    this.row     = 0;
+    this._arrPos = 0;
     if (this.onRowChange) this.onRowChange(0, this.model.currentPattern);
+    if (this.onStop) this.onStop();
   }
 
   _schedule() {
@@ -150,37 +171,59 @@ class Sequencer {
     this._timer = setTimeout(() => this._schedule(), this._schedInterval);
   }
 
+  _activePatIdx() {
+    if (this.mode === 'song') {
+      const arr = this.model.arrangement;
+      return this._arrPos < arr.length ? arr[this._arrPos] : -1;
+    }
+    return this.model.currentPattern;
+  }
+
   _fireRow(startTime) {
-    const patIdx = this.model.currentPattern;
+    const patIdx = this._activePatIdx();
+    if (patIdx === -1) return;
     const pat    = this.model.patterns[patIdx];
     if (!pat) return;
 
     const rowIdx = this.row;
     const tracks = this.model.tracks;
-
-    // Check for any soloed tracks
     const hasSolo = tracks.some(t => t.soloed);
 
     pat.rows[rowIdx].forEach((cell, tIdx) => {
       const track = tracks[tIdx];
-      if (!track) return;
-      if (track.muted) return;
+      if (!track || track.muted) return;
       if (hasSolo && !track.soloed) return;
       if (cell.note == null) return;
 
       const vel = (cell.velocity || 100) / 127;
-      const dur = this.secPerRow * 3.5;  // hold ~3.5 rows
+      const dur = this.secPerRow * 3.5;
       this.engine.playNote({ ...track, volume: track.volume * vel }, cell.note, startTime, dur);
     });
 
-    // Notify UI on next animation frame approximation
+    // Notify UI
     const capturedRow = rowIdx;
+    const capturedPat = patIdx;
     const delay = Math.max(0, (startTime - this.engine.currentTime) * 1000 - 10);
     setTimeout(() => {
-      if (this.playing && this.onRowChange) this.onRowChange(capturedRow, patIdx);
+      if (this.playing && this.onRowChange) this.onRowChange(capturedRow, capturedPat);
     }, delay);
 
     // Advance row
-    this.row = (rowIdx + 1) % pat.length;
+    this.row = rowIdx + 1;
+    if (this.row >= pat.length) {
+      this.row = 0;
+      if (this.mode === 'song') {
+        this._arrPos++;
+        if (this._arrPos >= this.model.arrangement.length) {
+          // End of song — stop scheduling and let notes ring out
+          this.playing = false;
+          const ringOut = Math.max(0, (startTime - this.engine.currentTime + this.secPerRow + 0.15) * 1000);
+          setTimeout(() => {
+            this.engine.stopAll();
+            if (this.onStop) this.onStop();
+          }, ringOut);
+        }
+      }
+    }
   }
 }

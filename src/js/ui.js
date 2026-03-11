@@ -11,6 +11,7 @@ class TrackerUI {
     this.noteInput  = new NoteInputBuffer();
     this._activeRow = -1;
     this._prTarget  = null; // { patIdx, trackIdx }
+    this._history   = [];   // undo stack (max 50)
   }
 
   /* ── Bootstrap ── */
@@ -27,6 +28,7 @@ class TrackerUI {
     this._updateMidiStatus();
 
     this.seq.onRowChange = (row, patIdx) => this._onPlayheadRow(row, patIdx);
+    this.seq.onStop      = () => this._onSeqStop();
   }
 
   /* ── Pattern select dropdown ── */
@@ -290,15 +292,24 @@ class TrackerUI {
 
   /* ── Toolbar bindings ── */
   _bindToolbar() {
-    document.getElementById('btn-play').addEventListener('click', () => {
-      this.engine.resume();
-      if (!this.seq.playing) { this.seq.start(); this._status('Playing…'); }
+    document.getElementById('btn-play-pattern').addEventListener('click', () => {
+      if (this.seq.playing) return;
+      this.seq.startPattern();
+      this._updatePlayState();
+      this._status('Playing pattern…');
+    });
+    document.getElementById('btn-play-song').addEventListener('click', () => {
+      if (this.seq.playing) return;
+      if (!this.model.arrangement.length) { this._status('Add patterns to Song Arrangement first'); return; }
+      this.seq.startSong();
+      this._updatePlayState();
+      this._status('Playing song…');
     });
     document.getElementById('btn-stop').addEventListener('click', () => {
-      this.seq.stop();
-      document.querySelectorAll('.cell.active-row, .row-num.active-row').forEach(el => el.classList.remove('active-row'));
+      this.seq.stop(); // onStop callback handles UI cleanup
       this._status('Stopped');
     });
+    document.getElementById('btn-undo').addEventListener('click', () => this._undo());
     document.getElementById('btn-record').addEventListener('click', () => {
       const btn = document.getElementById('btn-record');
       btn.classList.toggle('active');
@@ -371,6 +382,7 @@ class TrackerUI {
       const reader = new FileReader();
       reader.onload = ev => {
         try {
+          this._pushUndo({ type: 'import', state: JSON.parse(this.model.toJSON()) });
           importMidi(this.model, ev.target.result);
           document.getElementById('bpm').value = this.model.bpm;
           this._buildPatternSelect();
@@ -393,17 +405,19 @@ class TrackerUI {
       // Ignore when focused on an input/select
       if (['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)) return;
 
+      // Ctrl+Z — undo
+      if (e.ctrlKey && e.code === 'KeyZ') { e.preventDefault(); this._undo(); return; }
+
       switch (e.code) {
         case 'Space':
           e.preventDefault();
           if (this.seq.playing) {
             this.seq.stop();
-            document.querySelectorAll('.cell.active-row, .row-num.active-row').forEach(el => el.classList.remove('active-row'));
             this._status('Stopped');
           } else {
-            this.engine.resume();
-            this.seq.start();
-            this._status('Playing…');
+            this.seq.startPattern();
+            this._updatePlayState();
+            this._status('Playing pattern…');
           }
           break;
 
@@ -438,6 +452,8 @@ class TrackerUI {
         case 'Delete':
         case 'Backspace':
           e.preventDefault();
+          this._pushUndo({ type: 'cell', patIdx: this.model.currentPattern, row: this.selRow, trackIdx: this.selTrack,
+            cell: { ...this.model.getCell(this.model.currentPattern, this.selRow, this.selTrack) } });
           this.model.clearCell(this.model.currentPattern, this.selRow, this.selTrack);
           this._refreshCell(this.model.currentPattern, this.selRow, this.selTrack);
           break;
@@ -453,6 +469,8 @@ class TrackerUI {
           if (result) {
             const patIdx = this.model.currentPattern;
             const vel    = 100;
+            this._pushUndo({ type: 'cell', patIdx, row: this.selRow, trackIdx: this.selTrack,
+              cell: { ...this.model.getCell(patIdx, this.selRow, this.selTrack) } });
             this.model.setCell(patIdx, this.selRow, this.selTrack, { note: result.midi, velocity: vel });
             this._refreshCell(patIdx, this.selRow, this.selTrack);
             // Preview note
@@ -493,6 +511,10 @@ class TrackerUI {
     const pat   = this.model.patterns[patIdx];
     const track = this.model.tracks[trackIdx];
 
+    // Snapshot entire track column before any edits
+    this._pushUndo({ type: 'track', patIdx, trackIdx,
+      cells: pat.rows.map(row => ({ ...row[trackIdx] })) });
+
     document.getElementById('piano-roll-title').textContent =
       `Piano Roll — ${track.name} — ${pat.name}`;
 
@@ -528,6 +550,45 @@ class TrackerUI {
     for (let r = 0; r < pat.length; r++) {
       this._refreshCell(patIdx, r, trackIdx);
     }
+  }
+
+  /* ── Undo ── */
+  _pushUndo(entry) {
+    this._history.push(entry);
+    if (this._history.length > 50) this._history.shift();
+  }
+
+  _undo() {
+    const entry = this._history.pop();
+    if (!entry) { this._status('Nothing to undo'); return; }
+    if (entry.type === 'cell') {
+      this.model.patterns[entry.patIdx].rows[entry.row][entry.trackIdx] = entry.cell;
+      this._refreshCell(entry.patIdx, entry.row, entry.trackIdx);
+    } else if (entry.type === 'track') {
+      const pat = this.model.patterns[entry.patIdx];
+      entry.cells.forEach((cell, r) => { pat.rows[r][entry.trackIdx] = cell; });
+      this._refreshTrackCells(entry.patIdx, entry.trackIdx);
+    } else if (entry.type === 'import') {
+      this.model.fromJSON(JSON.stringify(entry.state));
+      document.getElementById('bpm').value = this.model.bpm;
+      this._buildPatternSelect();
+      this._buildTrackList();
+      this._buildPatternGrid();
+      this._buildArrangement();
+      this._loadTrackProps();
+    }
+    this._status('Undo');
+  }
+
+  /* ── Play state ── */
+  _updatePlayState() {
+    document.getElementById('btn-play-pattern').classList.toggle('active', this.seq.playing && this.seq.mode === 'pattern');
+    document.getElementById('btn-play-song').classList.toggle('active',    this.seq.playing && this.seq.mode === 'song');
+  }
+
+  _onSeqStop() {
+    document.querySelectorAll('.cell.active-row, .row-num.active-row').forEach(el => el.classList.remove('active-row'));
+    this._updatePlayState();
   }
 
   /* ── Misc ── */
