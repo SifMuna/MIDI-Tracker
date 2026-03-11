@@ -257,6 +257,11 @@ class TrackerUI {
       });
     });
 
+    document.getElementById('inst-wave').addEventListener('change', e => {
+      const t = this.model.tracks[this.selTrack];
+      if (t) t.wave = e.target.value;
+    });
+
     document.getElementById('btn-apply-inst').addEventListener('click', () => {
       const t = this.model.tracks[this.selTrack];
       if (!t) return;
